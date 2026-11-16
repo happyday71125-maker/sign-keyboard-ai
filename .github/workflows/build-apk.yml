@@ -29,6 +29,7 @@ jobs:
               p = Path(rel)
               p.parent.mkdir(parents=True, exist_ok=True)
               p.write_text(content, encoding="utf-8")
+          Path("app/debug.keystore").write_bytes(base64.b64decode(b64_ks))
           print("Materialized", len(data), "files + debug.keystore successfully.")
           PYEOF
           git config user.name "github-actions[bot]"
@@ -45,8 +46,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Download MediaPipe Hand Landmarker Model (hand_landmarker.task)
         run: |
