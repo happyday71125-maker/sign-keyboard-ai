@@ -37,11 +37,14 @@ private var cameraController: SignCameraController? = null
 private var previewView: PreviewView? = null
 private var overlayView: HandOverlayView? = null
 private var composingBadge: TextView? = null
-private var modeToggleBtn: Button? = null
+private var langToggleBtn: Button? = null
+private var twoHandModeBtn: Button? = null
 private var cameraToggleBtn: Button? = null
 private var cameraContainer: FrameLayout? = null
 private var suggestionRow: LinearLayout? = null
+private var categoryTabRow: LinearLayout? = null
 private var phraseRow: LinearLayout? = null
+private var keypadContainer: LinearLayout? = null
 private var selectedCategoryIdx: Int = 0
 private var isCameraActive = true
 override fun onCreate() {
@@ -66,22 +69,36 @@ gravity = Gravity.CENTER_VERTICAL
 setPadding(dp(2), dp(2), dp(2), dp(4))
 }
 val badgeView = TextView(this).apply {
-text = "🤟 수어 대기 중"
+text = "🤟 한손/양손 수어 대기"
 setTextColor(Color.parseColor("#38BDF8"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
 typeface = Typeface.DEFAULT_BOLD
 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 }
 composingBadge = badgeView
-val naturalizeBtn = createSmallActionButton("✨ 문장다듬기", "#0284C7") {
+val langBtn = createSmallActionButton(getLangLabel(), "#4F46E5") {
+val next = !classifier.isAslMode()
+val flushed = automata.flush()
+if (flushed.isNotEmpty()) currentInputConnection?.commitText(flushed, 1)
+currentInputConnection?.finishComposingText()
+automata.clearWordHistory()
+classifier.setAslMode(next)
+langToggleBtn?.text = getLangLabel()
+rebuildCategoryTabs()
+populateCategoryPhrases(selectedCategoryIdx)
+rebuildKeypad()
+refreshSuggestions()
+}
+langToggleBtn = langBtn
+val twoHandBtn = createSmallActionButton(getTwoHandLabel(), "#059669") {
+val next = !classifier.isTwoHandWordMode()
+classifier.setTwoHandWordMode(next)
+twoHandModeBtn?.text = getTwoHandLabel()
+}
+twoHandModeBtn = twoHandBtn
+val naturalizeBtn = createSmallActionButton("✨ 다듬기", "#0284C7") {
 naturalizeCurrentFieldText()
 }
-val modeBtn = createSmallActionButton(getModeLabel(), "#334155") {
-val next = !classifier.isPinchCommitMode()
-classifier.setPinchCommitMode(next)
-modeToggleBtn?.text = getModeLabel()
-}
-modeToggleBtn = modeBtn
 val camBtn = createSmallActionButton("📷 ON", "#1E293B") {
 isCameraActive = !isCameraActive
 if (isCameraActive) {
@@ -95,10 +112,9 @@ cameraToggleBtn?.text = "📷 OFF"
 }
 }
 cameraToggleBtn = camBtn
-val bridgeBtn = createSmallActionButton("🗣️ 대면소통", "#334155") {
+val bridgeBtn = createSmallActionButton("🗣️", "#334155") {
 val intent = Intent(this, MainActivity::class.java).apply {
 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-putExtra("open_bridge_tab", true)
 }
 startActivity(intent)
 }
@@ -107,8 +123,9 @@ val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 imm.showInputMethodPicker()
 }
 topBar.addView(badgeView)
+topBar.addView(langBtn)
+topBar.addView(twoHandBtn)
 topBar.addView(naturalizeBtn)
-topBar.addView(modeBtn)
 topBar.addView(camBtn)
 topBar.addView(bridgeBtn)
 topBar.addView(switchImeBtn)
@@ -153,14 +170,14 @@ orientation = LinearLayout.HORIZONTAL
 suggestionRow = sugRow
 suggestionScroll.addView(sugRow)
 root.addView(suggestionScroll)
-refreshSuggestions()
-val categoryTabRow = LinearLayout(this).apply {
+val catTabs = LinearLayout(this).apply {
 orientation = LinearLayout.HORIZONTAL
 layoutParams = LinearLayout.LayoutParams(
 ViewGroup.LayoutParams.MATCH_PARENT,
 ViewGroup.LayoutParams.WRAP_CONTENT
 ).apply { bottomMargin = dp(3) }
 }
+categoryTabRow = catTabs
 val categoryScroll = HorizontalScrollView(this).apply {
 isHorizontalScrollBarEnabled = false
 layoutParams = LinearLayout.LayoutParams(
@@ -173,56 +190,81 @@ orientation = LinearLayout.HORIZONTAL
 }
 phraseRow = pRow
 categoryScroll.addView(pRow)
+root.addView(catTabs)
+root.addView(categoryScroll)
+val kpBox = LinearLayout(this).apply {
+orientation = LinearLayout.VERTICAL
+layoutParams = LinearLayout.LayoutParams(
+ViewGroup.LayoutParams.MATCH_PARENT,
+ViewGroup.LayoutParams.WRAP_CONTENT
+)
+}
+keypadContainer = kpBox
+root.addView(kpBox)
+rebuildCategoryTabs()
+populateCategoryPhrases(selectedCategoryIdx)
+rebuildKeypad()
+refreshSuggestions()
+return root
+}
+private fun rebuildCategoryTabs() {
+val tabRow = categoryTabRow ?: return
+tabRow.removeAllViews()
+val asl = classifier.isAslMode()
 KslSentenceHelper.situationCategories.forEachIndexed { idx, cat ->
 val tabBtn = TextView(this).apply {
-text = cat.tabTitle
+text = if (asl) cat.tabTitleEn else cat.tabTitleKo
 setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
 typeface = Typeface.DEFAULT_BOLD
 gravity = Gravity.CENTER
-setPadding(dp(8), dp(4), dp(8), dp(4))
+setPadding(dp(6), dp(4), dp(6), dp(4))
 setBackgroundColor(if (idx == selectedCategoryIdx) Color.parseColor("#0284C7") else Color.parseColor("#1E293B"))
 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
 marginEnd = dp(3)
 }
 setOnClickListener {
 selectedCategoryIdx = idx
-for (i in 0 until categoryTabRow.childCount) {
-val child = categoryTabRow.getChildAt(i) as? TextView
-child?.setBackgroundColor(
-if (i == selectedCategoryIdx) Color.parseColor("#0284C7")
-else Color.parseColor("#1E293B")
-)
-}
+rebuildCategoryTabs()
 populateCategoryPhrases(idx)
 }
 }
-categoryTabRow.addView(tabBtn)
+tabRow.addView(tabBtn)
 }
-populateCategoryPhrases(selectedCategoryIdx)
-root.addView(categoryTabRow)
-root.addView(categoryScroll)
-val rows = listOf(
+}
+private fun rebuildKeypad() {
+val kp = keypadContainer ?: return
+kp.removeAllViews()
+val asl = classifier.isAslMode()
+val rows = if (asl) {
+listOf(
+listOf("Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"),
+listOf("A", "S", "D", "F", "G", "H", "J", "K", "L"),
+listOf("Z", "X", "C", "V", "B", "N", "M", "[SPACE]", "[BS]", "[ENTER]")
+)
+} else {
+listOf(
 listOf("ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅎ"),
 listOf("ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅏ", "ㅓ", "ㅗ", "ㅜ", "ㅡ", "ㅣ"),
 listOf("ㅑ", "ㅕ", "ㅛ", "ㅠ", "ㅐ", "ㅔ", "[SPACE]", "[BS]", "[ENTER]")
 )
+}
 for (rowTokens in rows) {
 val rowLayout = LinearLayout(this).apply {
 orientation = LinearLayout.HORIZONTAL
 layoutParams = LinearLayout.LayoutParams(
 ViewGroup.LayoutParams.MATCH_PARENT,
-dp(40)
+dp(39)
 ).apply { bottomMargin = dp(3) }
 }
 for (tok in rowTokens) {
 val weight = when (tok) {
-"[SPACE]" -> 2.4f
-"[BS]", "[ENTER]" -> 1.4f
+"[SPACE]" -> 2.2f
+"[BS]", "[ENTER]" -> 1.3f
 else -> 1f
 }
 val label = when (tok) {
-"[SPACE]" -> "간격(Space)"
+"[SPACE]" -> if (asl) "Space" else "간격"
 "[BS]" -> "⌫"
 "[ENTER]" -> "↵"
 else -> tok
@@ -231,7 +273,7 @@ val btn = Button(this).apply {
 text = label
 isAllCaps = false
 setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
 setPadding(0, 0, 0, 0)
 setBackgroundColor(
 if (tok.startsWith("[")) Color.parseColor("#334155")
@@ -248,20 +290,19 @@ handleCommittedToken(tok)
 }
 rowLayout.addView(btn)
 }
-root.addView(rowLayout)
+kp.addView(rowLayout)
 }
-return root
 }
 private fun refreshSuggestions() {
 val row = suggestionRow ?: return
 row.removeAllViews()
 val prefix = automata.getCurrentWordPrefix()
-val suggestions = KslSentenceHelper.getSuggestions(prefix)
+val suggestions = KslSentenceHelper.getSuggestions(prefix, classifier.isAslMode())
 for (word in suggestions) {
 val chip = TextView(this).apply {
 text = "💡 $word"
 setTextColor(Color.parseColor("#FEF08A"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
 setPadding(dp(10), dp(4), dp(10), dp(4))
 setBackgroundColor(Color.parseColor("#1E3A8A"))
 layoutParams = LinearLayout.LayoutParams(
@@ -271,7 +312,7 @@ ViewGroup.LayoutParams.WRAP_CONTENT
 setOnClickListener {
 automata.replacePrefixWithSuggestedWord(currentInputConnection, word)
 overlayView?.triggerVisualFlash(word)
-updateComposingIndicator("추천 단어 입력: $word")
+updateComposingIndicator("추천 입력: $word")
 vibratePattern(isWord = true)
 refreshSuggestions()
 }
@@ -283,11 +324,12 @@ private fun populateCategoryPhrases(categoryIndex: Int) {
 val row = phraseRow ?: return
 row.removeAllViews()
 val category = KslSentenceHelper.situationCategories.getOrNull(categoryIndex) ?: return
-for ((shortTitle, fullSentence) in category.phrases) {
+val list = if (classifier.isAslMode()) category.phrasesEn else category.phrasesKo
+for ((shortTitle, fullSentence) in list) {
 val chip = TextView(this).apply {
 text = shortTitle
 setTextColor(Color.parseColor("#E2E8F0"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
 setPadding(dp(10), dp(5), dp(10), dp(5))
 setBackgroundColor(Color.parseColor("#1E293B"))
 layoutParams = LinearLayout.LayoutParams(
@@ -297,7 +339,7 @@ ViewGroup.LayoutParams.WRAP_CONTENT
 setOnClickListener {
 automata.applyWordToInputConnection(currentInputConnection, fullSentence)
 overlayView?.triggerVisualFlash(shortTitle)
-updateComposingIndicator("상황 문장 입력: $shortTitle")
+updateComposingIndicator("문장 입력: $shortTitle")
 vibratePattern(isWord = true)
 refreshSuggestions()
 }
@@ -314,12 +356,12 @@ ic.commitText(flushed, 1)
 ic.finishComposingText()
 val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()
 if (!extracted.isNullOrBlank()) {
-val polished = KslSentenceHelper.naturalizeKslGloss(extracted)
+val polished = KslSentenceHelper.naturalizeSignGloss(extracted, classifier.isAslMode())
 ic.deleteSurroundingText(extracted.length, extracted.length)
 ic.commitText(polished, 1)
 automata.clearWordHistory()
 overlayView?.triggerVisualFlash("✨ 문장 다듬기 완료")
-updateComposingIndicator("✨ 다듬기: ${polished.trim()}")
+updateComposingIndicator("✨ ${polished.trim()}")
 vibratePattern(isWord = true)
 } else {
 updateComposingIndicator("다듬을 수어 단어를 먼저 입력해주세요")
@@ -329,7 +371,11 @@ override fun onWindowShown() {
 super.onWindowShown()
 lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
 lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-modeToggleBtn?.text = getModeLabel()
+langToggleBtn?.text = getLangLabel()
+twoHandModeBtn?.text = getTwoHandLabel()
+rebuildCategoryTabs()
+populateCategoryPhrases(selectedCategoryIdx)
+rebuildKeypad()
 refreshSuggestions()
 if (isCameraActive) {
 startCameraIfPermitted()
@@ -361,7 +407,8 @@ if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
 ) {
 overlayView?.updateState(
 emptyList(),
-"⚠️ '🗣️ 대면소통'을 눌러 카메라 권한을 먼저 허용해주세요",
+emptyList(),
+"⚠️ '🗣️' 버튼을 눌러 카메라 권한을 허용해주세요",
 0f,
 false
 )
@@ -373,7 +420,8 @@ context = this,
 classifier = classifier
 ) { output, progress, committedToken ->
 overlayView?.updateState(
-newLandmarks = output.smoothedLandmarks,
+primary = output.primaryLandmarks,
+secondary = output.secondaryLandmarks,
 label = output.displayLabel,
 progress = progress,
 pinching = output.isPinchClick
@@ -398,7 +446,7 @@ vibratePattern(isWord = false)
 }
 "[SPACE]" -> {
 automata.applyWordToInputConnection(ic, " ")
-overlayView?.triggerVisualFlash("띄어쓰기")
+overlayView?.triggerVisualFlash("Space")
 updateComposingIndicator("🖐️ 띄어쓰기")
 vibratePattern(isWord = false)
 }
@@ -414,7 +462,7 @@ ic.performEditorAction(editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION)
 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
 }
-overlayView?.triggerVisualFlash("↵ 줄바꿈/전송")
+overlayView?.triggerVisualFlash("↵ Enter")
 updateComposingIndicator("🤙 줄바꿈/전송")
 vibratePattern(isWord = true)
 }
@@ -430,7 +478,7 @@ val comp = automata.currentComposingText()
 overlayView?.triggerVisualFlash(if (comp.isNotEmpty()) comp else token.trim())
 updateComposingIndicator(
 if (comp.isNotEmpty()) "조합 중: $comp (최근: $token)"
-else "입력됨: $token"
+else "입력됨: ${token.trim()}"
 )
 }
 }
@@ -439,21 +487,24 @@ refreshSuggestions()
 private fun updateComposingIndicator(msg: String) {
 composingBadge?.text = msg
 }
-private fun getModeLabel(): String {
-return if (classifier.isPinchCommitMode()) "🤏 핀치" else "⏱️ 유지"
+private fun getLangLabel(): String {
+return if (classifier.isAslMode()) "🇺🇸 ASL" else "🇰🇷 KSL"
+}
+private fun getTwoHandLabel(): String {
+return if (classifier.isTwoHandWordMode()) "👐 양손단어" else "⚡ 양손보조"
 }
 private fun createSmallActionButton(label: String, bgHex: String, onClick: () -> Unit): Button {
 return Button(this).apply {
 text = label
 isAllCaps = false
 setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-setPadding(dp(6), dp(2), dp(6), dp(2))
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+setPadding(dp(5), dp(2), dp(5), dp(2))
 setBackgroundColor(Color.parseColor(bgHex))
 layoutParams = LinearLayout.LayoutParams(
 ViewGroup.LayoutParams.WRAP_CONTENT,
-dp(30)
-).apply { marginStart = dp(3) }
+dp(29)
+).apply { marginStart = dp(2) }
 setOnClickListener { onClick() }
 }
 }

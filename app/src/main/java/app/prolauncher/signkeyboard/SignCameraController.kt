@@ -38,7 +38,10 @@ private var lastCommittedTimeMs: Long = 0L
 private var wasPinching: Boolean = false
 private var wasAssistTriggering: Boolean = false
 @Volatile
-var lastFeatureVector: FloatArray = FloatArray(15)
+var lastFeatureVector: FloatArray = FloatArray(36)
+private set
+@Volatile
+var lastDetectedTwoHands: Boolean = false
 private set
 fun start(lifecycleOwner: LifecycleOwner, previewView: PreviewView) {
 if (cameraExecutor == null || cameraExecutor?.isShutdown == true) {
@@ -164,14 +167,25 @@ classifier.resetSmoothing()
 }
 wasPinching = false
 wasAssistTriggering = false
+lastDetectedTwoHands = false
 val emptyOut = SignRecognitionOutput(
-"", "손을 카메라에 비춰주세요", 0f, false, 1f, FloatArray(15), emptyList(), null
+"",
+if (classifier.isAslMode()) "Show 1 or 2 hands to camera" else "한 손 또는 양손을 비춰주세요",
+0f,
+false,
+1f,
+FloatArray(36),
+emptyList(),
+emptyList(),
+false,
+null
 )
 onStateUpdate(emptyOut, 0f, null)
 return
 }
 val primaryHand = hands[0]
 val secondaryHand = if (hands.size >= 2) hands[1] else null
+lastDetectedTwoHands = secondaryHand != null
 val output = classifier.classify(primaryHand, secondaryHand)
 lastFeatureVector = output.featureVector
 var committed: String? = null
@@ -198,8 +212,8 @@ progress = 1f
 wasAssistTriggering = false
 }
 if (committed == null) {
-if (classifier.isPinchCommitMode()) {
-if (output.token.isNotEmpty() && output.token != "ㅇ") {
+if (classifier.isPinchCommitMode() && !output.isTwoHandSign) {
+if (output.token.isNotEmpty() && output.token != "ㅇ" && output.token != "F" && output.token != "O") {
 currentCandidateToken = output.token
 lastValidCandidateSeenMs = now
 }
@@ -221,7 +235,7 @@ progress = (elapsed.toFloat() / dwellMs.toFloat()).coerceIn(0f, 1f)
 if (elapsed >= dwellMs && (now - lastCommittedTimeMs >= dwellMs)) {
 committed = output.token
 lastCommittedTimeMs = now
-candidateStartTimeMs = now + 200L
+candidateStartTimeMs = now + 220L
 progress = 1f
 }
 } else {

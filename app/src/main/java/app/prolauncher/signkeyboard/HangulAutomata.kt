@@ -41,6 +41,7 @@ val isVowel = jungseongList.contains(ch)
 if (!isConsonant && !isVowel) {
 val committed = flush() + ch.toString()
 if (ch == ' ' || ch == '\n') recentSyllables.clear()
+else appendRecent(ch.toString())
 return Pair(committed, "")
 }
 if (isConsonant) {
@@ -145,8 +146,8 @@ return Pair("", currentComposingText())
 }
 private fun appendRecent(str: String) {
 recentSyllables.append(str)
-if (recentSyllables.length > 10) {
-recentSyllables.delete(0, recentSyllables.length - 10)
+if (recentSyllables.length > 14) {
+recentSyllables.delete(0, recentSyllables.length - 14)
 }
 }
 fun backspace(): Boolean {
@@ -201,6 +202,8 @@ ic.finishComposingText()
 ic.commitText(word, 1)
 if (word.endsWith(" ") || word.endsWith("\n")) {
 recentSyllables.clear()
+} else {
+appendRecent(word)
 }
 }
 fun replacePrefixWithSuggestedWord(ic: InputConnection?, suggestedWord: String) {

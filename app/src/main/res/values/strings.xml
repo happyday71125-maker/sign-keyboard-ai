@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">수어 키보드 AI</string>
-    <string name="ime_service_label">수어 키보드 AI v2.0 (농아인 맞춤 전면 카메라 IME)</string>
-    <string name="subtype_korean_sign">한국 수어 지문자/양손/문맥보정 키보드</string>
+  <string name="app_name">수어 키보드 AI</string>
+  <string name="ime_service_label">수어 키보드 AI v3.0 (한/영 &amp; 한손/양손 수어 IME)</string>
+  <string name="subtype_korean_sign">한국수어(KSL) 한손·양손 키보드</string>
+  <string name="subtype_english_sign">미국수어(ASL) A-Z &amp; 양손 키보드</string>
 </resources>

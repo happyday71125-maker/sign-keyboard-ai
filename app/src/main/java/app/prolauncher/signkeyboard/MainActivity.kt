@@ -40,6 +40,8 @@ private var billboardCard: LinearLayout? = null
 private var billboardText: TextView? = null
 private var sttCaptionText: TextView? = null
 private var sttListenBtn: Button? = null
+private var langBtn: Button? = null
+private var twoHandBtn: Button? = null
 private var isPracticeComposing = false
 private var isBillboardFlipped = false
 private var isListeningStt = false
@@ -55,13 +57,13 @@ orientation = LinearLayout.VERTICAL
 setPadding(dp(16), dp(18), dp(16), dp(32))
 }
 val title = TextView(this).apply {
-text = "🤟 수어 키보드 AI v2.0 (농아인 소통 스튜디오)"
+text = "🤟 수어 키보드 AI v3.0 (한·영 / 한손·양손 통합)"
 setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 20.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
 typeface = Typeface.DEFAULT_BOLD
 }
 val subtitle = TextView(this).apply {
-text = "전면 카메라 24자 지문자·양손 수어 인식, 수어 어순 문장 보정, 180° 대면 필담 전광판, 상대방 음성 실시간 자막(STT)을 통합 지원합니다."
+text = "한국수어(KSL 24자 지문자 + 양손 공식 수어 단어)와 미국수어(ASL A~Z 26자 + 양손 수어), 180° 대면 필담 전광판, 한·영 실시간 음성 자막(STT)을 모두 지원합니다."
 setTextColor(Color.parseColor("#94A3B8"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
 setPadding(0, dp(4), 0, dp(12))
@@ -73,7 +75,7 @@ orientation = LinearLayout.HORIZONTAL
 layoutParams = LinearLayout.LayoutParams(
 LinearLayout.LayoutParams.MATCH_PARENT,
 LinearLayout.LayoutParams.WRAP_CONTENT
-).apply { bottomMargin = dp(10) }
+).apply { bottomMargin = dp(8) }
 }
 stepRow.addView(createStepButton("① 카메라·마이크 권한") {
 ActivityCompat.requestPermissions(
@@ -90,12 +92,36 @@ val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 imm.showInputMethodPicker()
 })
 container.addView(stepRow)
+val modeRow = LinearLayout(this).apply {
+orientation = LinearLayout.HORIZONTAL
+layoutParams = LinearLayout.LayoutParams(
+LinearLayout.LayoutParams.MATCH_PARENT,
+LinearLayout.LayoutParams.WRAP_CONTENT
+).apply { bottomMargin = dp(12) }
+}
+val lBtn = createActionButton(getLangModeTitle(), "#4F46E5") {
+val next = !classifier.isAslMode()
+automata.flush()
+automata.clearWordHistory()
+classifier.setAslMode(next)
+langBtn?.text = getLangModeTitle()
+}
+langBtn = lBtn
+val thBtn = createActionButton(getTwoHandModeTitle(), "#059669") {
+val next = !classifier.isTwoHandWordMode()
+classifier.setTwoHandWordMode(next)
+twoHandBtn?.text = getTwoHandModeTitle()
+}
+twoHandBtn = thBtn
+modeRow.addView(lBtn)
+modeRow.addView(thBtn)
+container.addView(modeRow)
 val bridgeHeader = TextView(this).apply {
-text = "🗣️ 대면 필담 전광판 & 상대방 음성 실시간 자막 (병원·관공서·매장용)"
+text = "🗣️ 대면 필담 전광판 & 상대방 음성 실시간 자막 (한/영 자동 연동)"
 setTextColor(Color.parseColor("#FACC15"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
 typeface = Typeface.DEFAULT_BOLD
-setPadding(0, dp(4), 0, dp(6))
+setPadding(0, dp(2), 0, dp(6))
 }
 container.addView(bridgeHeader)
 val bCard = LinearLayout(this).apply {
@@ -109,14 +135,14 @@ LinearLayout.LayoutParams.WRAP_CONTENT
 }
 billboardCard = bCard
 val billboardHint = TextView(this).apply {
-text = "상대방에게 보여줄 큰글씨 전광판"
+text = "맞은편 상대방에게 보여줄 큰글씨 전광판"
 setTextColor(Color.parseColor("#93C5FD"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
 }
 val bText = TextView(this).apply {
 text = "청각장애인입니다. 화면의 글씨를 봐주시거나 아래 음성 자막 버튼을 눌러 말씀해 주세요."
 setTextColor(Color.parseColor("#FEF08A"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 21f)
 typeface = Typeface.DEFAULT_BOLD
 setPadding(0, dp(6), 0, dp(6))
 }
@@ -143,9 +169,9 @@ bridgeBtnRow.addView(flipBtn)
 bridgeBtnRow.addView(listenBtn)
 container.addView(bridgeBtnRow)
 val captionView = TextView(this).apply {
-text = "💬 상대방 음성 자막: (상대방이 말하면 이곳에 실시간 큰글씨 자막이 표시됩니다)"
+text = "💬 상대방 음성 자막: (KSL 모드 시 한국어, ASL 모드 시 영어 음성을 자막으로 변환합니다)"
 setTextColor(Color.parseColor("#A7F3D0"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
 typeface = Typeface.DEFAULT_BOLD
 setBackgroundColor(Color.parseColor("#064E3B"))
 setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -159,7 +185,7 @@ container.addView(captionView)
 val camBox = FrameLayout(this).apply {
 layoutParams = LinearLayout.LayoutParams(
 LinearLayout.LayoutParams.MATCH_PARENT,
-dp(220)
+dp(230)
 ).apply { bottomMargin = dp(8) }
 setBackgroundColor(Color.parseColor("#1E293B"))
 }
@@ -182,7 +208,7 @@ previewView = pv
 overlayView = ov
 container.addView(camBox)
 val statView = TextView(this).apply {
-text = "현재 인식 상태: 대기 중 (양손 고속 모드 ON)"
+text = "현재 인식 상태: 한손/양손 대기 중"
 setTextColor(Color.parseColor("#38BDF8"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
 setPadding(0, 0, 0, dp(6))
@@ -190,7 +216,7 @@ setPadding(0, 0, 0, dp(6))
 statusText = statView
 container.addView(statView)
 val editView = EditText(this).apply {
-hint = "수어로 입력하거나 상황별 칩을 누르면 이곳과 상단 전광판에 실시간 표시됩니다..."
+hint = "한손 지문자(한글 24자 / 영어 A~Z) 또는 양손 공식 수어를 비추면 이곳에 자동 입력됩니다..."
 setHintTextColor(Color.parseColor("#64748B"))
 setTextColor(Color.WHITE)
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
@@ -210,7 +236,7 @@ LinearLayout.LayoutParams.WRAP_CONTENT
 editActionRow.addView(createActionButton("✨ 수어 어순 -> 문장 다듬기", "#0284C7") {
 val raw = practiceEdit?.text?.toString() ?: ""
 if (raw.isNotBlank()) {
-val polished = KslSentenceHelper.naturalizeKslGloss(raw)
+val polished = KslSentenceHelper.naturalizeSignGloss(raw, classifier.isAslMode())
 practiceEdit?.setText(polished)
 practiceEdit?.setSelection(polished.length)
 billboardText?.text = polished.trim()
@@ -225,42 +251,11 @@ Toast.makeText(this, "상단 전광판에 반영되었습니다.", Toast.LENGTH_
 }
 })
 container.addView(editActionRow)
-val quickChipScroll = HorizontalScrollView(this).apply {
-isHorizontalScrollBarEnabled = false
-layoutParams = LinearLayout.LayoutParams(
-LinearLayout.LayoutParams.MATCH_PARENT,
-LinearLayout.LayoutParams.WRAP_CONTENT
-).apply { bottomMargin = dp(12) }
-}
-val quickChipRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-for (cat in KslSentenceHelper.situationCategories) {
-for ((shortLabel, sentence) in cat.phrases.take(2)) {
-val chip = TextView(this).apply {
-text = shortLabel
-setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-setPadding(dp(10), dp(6), dp(10), dp(6))
-setBackgroundColor(Color.parseColor("#334155"))
-layoutParams = LinearLayout.LayoutParams(
-LinearLayout.LayoutParams.WRAP_CONTENT,
-LinearLayout.LayoutParams.WRAP_CONTENT
-).apply { marginEnd = dp(6) }
-setOnClickListener {
-practiceEdit?.setText(sentence)
-practiceEdit?.setSelection(sentence.length)
-billboardText?.text = sentence.trim()
-}
-}
-quickChipRow.addView(chip)
-}
-}
-quickChipScroll.addView(quickChipRow)
-container.addView(quickChipScroll)
 val dwellLabel = TextView(this).apply {
-text = "⏱️ 수형 유지 자동입력 시간 (Dwell): ${classifier.getDwellMs()} ms (180ms 떨림 보정 포함)"
+text = "⏱️ 수형 유지 자동입력 시간 (Dwell): ${classifier.getDwellMs()} ms"
 setTextColor(Color.parseColor("#E2E8F0"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
-setPadding(0, dp(6), 0, dp(4))
+setPadding(0, dp(4), 0, dp(4))
 }
 val dwellSeek = SeekBar(this).apply {
 max = 1200
@@ -269,7 +264,7 @@ setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 override fun onProgressChanged(seekBar: SeekBar?, p: Int, fromUser: Boolean) {
 val ms = 300L + p.toLong()
 classifier.setDwellMs(ms)
-dwellLabel.text = "⏱️ 수형 유지 자동입력 시간 (Dwell): $ms ms (180ms 떨림 보정 포함)"
+dwellLabel.text = "⏱️ 수형 유지 자동입력 시간 (Dwell): $ms ms"
 }
 override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -278,39 +273,41 @@ override fun onStopTrackingTouch(seekBar: SeekBar?) {}
 container.addView(dwellLabel)
 container.addView(dwellSeek)
 val macroTitle = TextView(this).apply {
-text = "★ 나만의 수어 동작 -> 단어/문장 녹화"
+text = "★ 한손/양손 공식 수어 동작 추가 등록 (36차원 양손+궤적 학습)"
 setTextColor(Color.parseColor("#FACC15"))
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
 typeface = Typeface.DEFAULT_BOLD
 setPadding(0, dp(14), 0, dp(6))
 }
 val macroInput = EditText(this).apply {
-hint = "현재 손 모양으로 입력할 문구 (예: 수어 통역사 부탁드립니다)"
+hint = "현재 한손 또는 양손 수어로 입력할 단어/문장 (예: 반갑습니다 / Nice to meet you)"
 setHintTextColor(Color.parseColor("#64748B"))
 setTextColor(Color.WHITE)
 setBackgroundColor(Color.parseColor("#1E293B"))
 setPadding(dp(10), dp(10), dp(10), dp(10))
 }
 val recordBtn = Button(this).apply {
-text = "📸 현재 손 모양으로 위 문구 등록"
+text = "📸 현재 카메라의 한손/양손 수어 동작으로 위 문구 등록"
 isAllCaps = false
 setTextColor(Color.WHITE)
 setBackgroundColor(Color.parseColor("#0284C7"))
 setOnClickListener {
 val phrase = macroInput.text.toString().trim()
 val vec = cameraController?.lastFeatureVector
+val isTwo = cameraController?.lastDetectedTwoHands ?: false
 if (phrase.isEmpty()) {
-Toast.makeText(this@MainActivity, "등록할 문구를 먼저 입력해주세요.", Toast.LENGTH_SHORT).show()
+Toast.makeText(this@MainActivity, "등록할 단어/문장을 먼저 입력해주세요.", Toast.LENGTH_SHORT).show()
 return@setOnClickListener
 }
 if (vec == null || vec.all { it == 0f }) {
-Toast.makeText(this@MainActivity, "카메라에 손이 인식된 상태에서 눌러주세요.", Toast.LENGTH_SHORT).show()
+Toast.makeText(this@MainActivity, "카메라에 한 손 또는 양손이 인식된 상태에서 눌러주세요.", Toast.LENGTH_SHORT).show()
 return@setOnClickListener
 }
-classifier.addCustomMacro(phrase, "$phrase ", vec.clone())
+classifier.addCustomMacro(phrase, "$phrase ", isTwo, vec.clone())
 macroInput.setText("")
 refreshMacroList()
-Toast.makeText(this@MainActivity, "'$phrase' 수어 동작이 저장되었습니다!", Toast.LENGTH_SHORT).show()
+val handTag = if (isTwo) "양손 수어" else "한손 수어"
+Toast.makeText(this@MainActivity, "[$handTag] '$phrase' 동작이 저장되었습니다!", Toast.LENGTH_SHORT).show()
 }
 }
 val macroView = TextView(this).apply {
@@ -325,32 +322,44 @@ container.addView(macroInput)
 container.addView(recordBtn)
 container.addView(macroView)
 val guideTitle = TextView(this).apply {
-text = "📖 한국 수어 지문자 24자 & 양손 고속 입력 요약"
+text = "📖 한손·양손 & 한국수어(KSL)·미국수어(ASL) 지원 안내"
 setTextColor(Color.WHITE)
 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
 typeface = Typeface.DEFAULT_BOLD
 setPadding(0, dp(10), 0, dp(6))
 }
 val guideLines = listOf(
-"• ㄱ / ㄴ / ㅋ : 엄지·검지 펴서 아래(ㄱ), 옆(ㄴ), 검지 갈고리+중지(ㅋ)",
-"• ㄷ / ㄹ / ㅌ / ㅍ : 검·중지 옆(ㄷ), 검·중·약지 모으기(ㄹ), 벌리기(ㅌ), 네 손가락 옆(ㅍ)",
-"• ㅁ / ㅂ : 검·중·약지 위 모으기(ㅁ), 네 손가락 위로 붙여 펴기(ㅂ)",
-"• ㅅ / ㅇ : 검·중지 아래 V자(ㅅ), 엄지·검지 동그라미 👌(ㅇ)",
-"• ㅈ / ㅊ / ㅎ : 엄·검·중 펴기(ㅈ), 네 손가락 벌리기(ㅊ), 검지·새끼 펴기 🤘(ㅎ)",
-"• ㅏ~ㅣ (모음 10자) : 검지 위(ㅏ), 검·중지 위 벌림(ㅑ), 엄·검지 위(ㅓ), 검·중지 위 모음(ㅕ), 엄지 위 👍(ㅗ), 검·중·약지 위 벌림(ㅛ), 엄지 아래 👎(ㅜ), 검·중지 아래 모음(ㅠ), 검지 옆(ㅡ), 새끼 위(ㅣ)",
-"• 👐 양손 고속 입력 : 오른손으로 지문자를 만든 채 왼손 핀치(🤏) 시 대기 없이 즉시 입력!",
-"• 🖐️ 손바닥 펴기 : 띄어쓰기 | ✊ 주먹 : 지우기 | 🤙 엄지+새끼 : 줄바꿈 | 🤟 ILY : '안녕하세요 '"
+"1. [한손 한국수어 지문자 24자] : 자음 14자(ㄱ~ㅎ) + 모음 10자(ㅏ~ㅣ) 전수 인식 및 완성형 한글 조합",
+"2. [한손 미국수어(ASL) 알파벳 26자] : A~Z 전수 인식 (동적 궤적 문자 J, Z 및 주먹 계열 A, E, S, M, N, T 엄지 위치 구분 포함)",
+"3. [양손 공식 수어 단어 (KSL & ASL)] : 두 손을 함께 비추면 하늘색(주손)+보라색(보조손) 42관절을 동시 추적하여 아래 공식 양손 수어를 즉시 인식합니다:",
+"   • ⛺ 집 / HOUSE : 양손을 펴서 지붕 모양으로 손끝 맞대기",
+"   • 📖 학교 / BOOK : 양손 손바닥을 펴서 새끼손가락 쪽을 나란히 맞대기",
+"   • 🤝 만나다 / MEET : 양손 검지(☝️)를 세워 서로 마주 보며 다가오기",
+"   • 👍 도와주세요 / HELP : 한 손 엄지를 세우고 다른 손바닥으로 밑에서 받치기",
+"   • 🙏 감사합니다 / THANK YOU : 한 손등 위를 다른 손날로 두드리기",
+"   • 🏥 병원 / HOSPITAL : 양손 검·중지를 십자(+) 교차하거나 손목 짚기",
+"   • 💊 약국 / MEDICINE : 한 손바닥 중심에 다른 손 검지/중지 끝 맞대기",
+"   • ❤️ 사랑합니다 / LOVE : 한 손 주먹을 다른 손바닥으로 감싸기",
+"   • 🔨 일하다 / WORK : 양손 주먹을 쥐고 마주 두드리기",
+"   • 🤏 더 / MORE : 양손 핀치(엄지+검지) 끝을 서로 맞대기",
+"   • 👐 끝 / FINISHED : 양손 다섯 손가락을 모두 활짝 펴서 벌리기"
 ).joinToString("\n")
 val guideBody = TextView(this).apply {
 text = guideLines
 setTextColor(Color.parseColor("#94A3B8"))
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.8f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.6f)
 setLineSpacing(dp(3).toFloat(), 1f)
 }
 container.addView(guideTitle)
 container.addView(guideBody)
 scroll.addView(container)
 setContentView(scroll)
+}
+private fun getLangModeTitle(): String {
+return if (classifier.isAslMode()) "🇺🇸 현재: 영어수어 (ASL A~Z)" else "🇰🇷 현재: 한국수어 (KSL 한글)"
+}
+private fun getTwoHandModeTitle(): String {
+return if (classifier.isTwoHandWordMode()) "👐 양손: 공식 수어 단어 인식" else "⚡ 양손: 지문자 고속 확정 보조"
 }
 private fun toggleSpeechToText() {
 if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
@@ -375,7 +384,8 @@ if (speechRecognizer == null) {
 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
 setRecognitionListener(object : RecognitionListener {
 override fun onReadyForSpeech(params: Bundle?) {
-sttCaptionText?.text = "🎙️ 듣고 있습니다... 상대방이 말씀하시면 자막으로 변환됩니다."
+val langName = if (classifier.isAslMode()) "English" else "한국어"
+sttCaptionText?.text = "🎙️ [$langName] 듣고 있습니다... 상대방이 말씀하시면 실시간 자막으로 변환됩니다."
 }
 override fun onBeginningOfSpeech() {}
 override fun onRmsChanged(rmsdB: Float) {}
@@ -405,9 +415,10 @@ override fun onEvent(eventType: Int, params: Bundle?) {}
 })
 }
 }
+val localeStr = if (classifier.isAslMode()) Locale.US.toString() else Locale.KOREAN.toString()
 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.KOREAN.toString())
+putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeStr)
 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
 }
 speechRecognizer?.startListening(intent)
@@ -427,6 +438,8 @@ sttListenBtn?.text = "🎙️ 상대방 음성 자막 켜기"
 }
 override fun onResume() {
 super.onResume()
+langBtn?.text = getLangModeTitle()
+twoHandBtn?.text = getTwoHandModeTitle()
 if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
 == PackageManager.PERMISSION_GRANTED
 ) {
@@ -467,14 +480,15 @@ context = this,
 classifier = classifier
 ) { output, progress, committedToken ->
 overlayView?.updateState(
-newLandmarks = output.smoothedLandmarks,
+primary = output.primaryLandmarks,
+secondary = output.secondaryLandmarks,
 label = output.displayLabel,
 progress = progress,
 pinching = output.isPinchClick
 )
 runOnUiThread {
-val assistInfo = if (output.secondHandAction != null) " | 양손보조: ${output.secondHandAction}" else ""
-statusText?.text = "인식: ${output.displayLabel} (핀치: ${"%.2f".format(output.pinchRatio)}$assistInfo)"
+val handCnt = if (output.secondaryLandmarks.isNotEmpty()) "양손(42관절)" else "한손(21관절)"
+statusText?.text = "[$handCnt] ${output.displayLabel} (핀치: ${"%.2f".format(output.pinchRatio)})"
 if (committedToken != null) {
 val edit = practiceEdit
 if (edit != null) {
@@ -500,7 +514,10 @@ val list = classifier.getCustomMacros()
 macroListText?.text = if (list.isEmpty()) {
 "등록된 커스텀 수어 단어가 없습니다."
 } else {
-"등록된 커스텀 수어 (${list.size}개): " + list.joinToString(", ") { it.name }
+"등록된 커스텀 수어 (${list.size}개): " + list.joinToString(", ") {
+val tag = if (it.isTwoHand) "양손" else "한손"
+"${it.name}($tag)"
+}
 }
 }
 private fun createStepButton(label: String, onClick: () -> Unit): Button {
@@ -522,7 +539,7 @@ return Button(this).apply {
 text = label
 isAllCaps = false
 setTextColor(Color.WHITE)
-setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
 setBackgroundColor(Color.parseColor(bgHex))
 gravity = Gravity.CENTER
 layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
